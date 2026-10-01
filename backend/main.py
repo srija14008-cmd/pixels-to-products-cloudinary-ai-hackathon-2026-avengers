@@ -1,26 +1,47 @@
 import os
-import io
 import re
+import io
 from urllib.parse import urlparse
 
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
-
 from cloudinary import CloudinaryImage
-from dotenv import load_dotenv
-
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-
-from PIL import Image, ImageDraw, ImageFont
 
 import pytesseract
+from PIL import Image, ImageDraw
+
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from dotenv import load_dotenv
 
 
 # =========================================================
-# TESSERACT CONFIGURATION
+# LOAD ENVIRONMENT VARIABLES
 # =========================================================
+
+load_dotenv()
+
+
+# =========================================================
+# CLOUDINARY CONFIGURATION
+# =========================================================
+
+cloudinary_url = os.getenv("CLOUDINARY_URL")
+
+if not cloudinary_url:
+    raise RuntimeError("CLOUDINARY_URL is not configured")
+
+parsed = urlparse(cloudinary_url)
+
+cloudinary.config(
+    cloud_name=parsed.hostname,
+    api_key=parsed.username,
+    api_secret=parsed.password,
+    secure=True
+)
+
 
 # =========================================================
 # TESSERACT CONFIGURATION
@@ -33,39 +54,6 @@ if os.name == "nt":
 else:
     pytesseract.pytesseract.tesseract_cmd = "tesseract"
 
-# =========================================================
-# LOAD ENVIRONMENT VARIABLES
-# =========================================================
-
-load_dotenv()
-
-cloudinary_url = os.getenv("CLOUDINARY_URL")
-
-if not cloudinary_url:
-    raise RuntimeError("CLOUDINARY_URL not found in .env")
-
-
-# =========================================================
-# CLOUDINARY CONFIGURATION
-# =========================================================
-
-parsed = urlparse(cloudinary_url)
-
-cloud_name = parsed.hostname
-api_key = parsed.username
-api_secret = parsed.password
-
-print("Cloud name found:", bool(cloud_name))
-print("API key found:", bool(api_key))
-print("API secret found:", bool(api_secret))
-
-cloudinary.config(
-    cloud_name=cloud_name,
-    api_key=api_key,
-    api_secret=api_secret,
-    secure=True
-)
-
 
 # =========================================================
 # FASTAPI APP
@@ -73,7 +61,7 @@ cloudinary.config(
 
 app = FastAPI(
     title="SnapShield AI",
-    description="AI-powered image privacy and media protection system",
+    description="Smart Image Safety & Privacy Scanner",
     version="1.0.0"
 )
 
@@ -86,11 +74,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "http://127.0.0.1:5173"
+        "http://127.0.0.1:5173",
+        "https://snapshield-ai.vercel.app",
+        "https://snapshield-ai-git-main-avengers-b5f3.vercel.app",
+        "https://snapshield-421g2jhn4-avengers-b5f3.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 
@@ -99,8 +90,7 @@ app.add_middleware(
 # =========================================================
 
 @app.get("/")
-def home():
-
+def root():
     return {
         "status": "success",
         "message": "SnapShield AI backend is running!"
@@ -108,32 +98,36 @@ def home():
 
 
 # =========================================================
-# CLOUDINARY TEST
+# HEALTH CHECK
+# =========================================================
+
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "service": "SnapShield AI"
+    }
+
+
+# =========================================================
+# CLOUDINARY CONNECTION TEST
 # =========================================================
 
 @app.get("/cloudinary-test")
 def cloudinary_test():
-
     try:
-
-        result = cloudinary.uploader.upload(
-            "https://res.cloudinary.com/demo/image/upload/sample.jpg",
-            public_id="snapshield_test"
-        )
+        result = cloudinary.api.ping()
 
         return {
             "status": "success",
-            "message": "Cloudinary connection is working!",
-            "public_id": result.get("public_id"),
-            "url": result.get("secure_url")
+            "cloudinary": result
         }
 
     except Exception as e:
-
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Cloudinary connection failed: {str(e)}"
+        )
 
 
 # =========================================================
@@ -147,6 +141,12 @@ async def upload_image(file: UploadFile = File(...)):
 
         contents = await file.read()
 
+        if not contents:
+            raise HTTPException(
+                status_code=400,
+                detail="Empty file"
+            )
+
         result = cloudinary.uploader.upload(
             contents,
             folder="snapshield"
@@ -154,25 +154,28 @@ async def upload_image(file: UploadFile = File(...)):
 
         return {
             "status": "success",
-            "message": "Image uploaded successfully!",
-            "filename": file.filename,
+            "message": "Image uploaded successfully",
             "public_id": result.get("public_id"),
-            "url": result.get("secure_url"),
+            "secure_url": result.get("secure_url"),
             "width": result.get("width"),
             "height": result.get("height"),
-            "format": result.get("format")
+            "format": result.get("format"),
+            "resource_type": result.get("resource_type")
         }
+
+    except HTTPException:
+        raise
 
     except Exception as e:
 
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Upload failed: {str(e)}"
+        )
 
 
 # =========================================================
-# IMAGE INFORMATION
+# IMAGE INFO
 # =========================================================
 
 @app.get("/image-info/{public_id:path}")
@@ -180,25 +183,27 @@ def image_info(public_id: str):
 
     try:
 
-        result = cloudinary.api.resource(public_id)
+        result = cloudinary.api.resource(
+            public_id
+        )
 
         return {
             "status": "success",
             "public_id": result.get("public_id"),
-            "url": result.get("secure_url"),
+            "secure_url": result.get("secure_url"),
             "width": result.get("width"),
             "height": result.get("height"),
             "format": result.get("format"),
             "bytes": result.get("bytes"),
-            "resource_type": result.get("resource_type")
+            "created_at": result.get("created_at")
         }
 
     except Exception as e:
 
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        raise HTTPException(
+            status_code=404,
+            detail=f"Image not found: {str(e)}"
+        )
 
 
 # =========================================================
@@ -213,27 +218,22 @@ def optimize_image(public_id: str):
         optimized_url = CloudinaryImage(
             public_id
         ).build_url(
-            transformation=[
-                {
-                    "quality": "auto",
-                    "fetch_format": "auto"
-                }
-            ]
+            quality="auto",
+            fetch_format="auto"
         )
 
         return {
             "status": "success",
-            "message": "Image optimized successfully!",
-            "original_public_id": public_id,
+            "message": "Optimized image URL generated",
             "optimized_url": optimized_url
         }
 
     except Exception as e:
 
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Optimization failed: {str(e)}"
+        )
 
 
 # =========================================================
@@ -248,65 +248,65 @@ def remove_background(public_id: str):
         background_removed_url = CloudinaryImage(
             public_id
         ).build_url(
-            transformation=[
-                {
-                    "effect": "background_removal"
-                }
-            ]
+            effect="background_removal"
         )
 
         return {
             "status": "success",
-            "message": "Background removal transformation created!",
-            "original_public_id": public_id,
+            "message": "Background removal URL generated",
             "background_removed_url": background_removed_url
         }
 
     except Exception as e:
 
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Background removal failed: {str(e)}"
+        )
 
 
 # =========================================================
-# ANALYZE PRIVACY
+# PRIVACY ANALYSIS
 # =========================================================
 
 @app.post("/analyze-privacy")
-async def analyze_privacy(file: UploadFile = File(...)):
+async def analyze_privacy(
+    file: UploadFile = File(...)
+):
 
     try:
 
         contents = await file.read()
 
+        if not contents:
+            raise HTTPException(
+                status_code=400,
+                detail="Empty file"
+            )
+
         image = Image.open(
             io.BytesIO(contents)
         )
 
+        filename = file.filename or ""
+
         width, height = image.size
 
-        image_format = image.format or "Unknown"
-
-        file_size = len(contents)
-
-        privacy_score = 0
+        file_size_mb = len(contents) / (
+            1024 * 1024
+        )
 
         risks = []
 
-        recommendations = []
+        score = 0
 
-
-        # =================================================
-        # FILENAME
-        # =================================================
-
-        filename = file.filename or ""
+        # -------------------------------------------------
+        # FILENAME RISK
+        # -------------------------------------------------
 
         filename_lower = filename.lower()
 
-        sensitive_filename_patterns = [
+        filename_keywords = [
             "aadhaar",
             "aadhar",
             "pan",
@@ -319,761 +319,561 @@ async def analyze_privacy(file: UploadFile = File(...)):
             "document"
         ]
 
-        filename_sensitive = any(
-            pattern in filename_lower
-            for pattern in sensitive_filename_patterns
+        filename_risk = any(
+            keyword in filename_lower
+            for keyword in filename_keywords
         )
 
-        if filename_sensitive:
-
-            privacy_score += 20
+        if filename_risk:
 
             risks.append({
-                "type": "Filename",
-                "severity": "Medium",
-                "message": "The filename may contain sensitive information."
+                "type": "Sensitive filename",
+                "description":
+                    "The filename suggests that the image may contain personal or private information.",
+                "severity": "Medium"
             })
 
-            recommendations.append(
-                "Use a neutral filename before sharing the image."
-            )
+            score += 20
 
+        # -------------------------------------------------
+        # EXIF RISK
+        # -------------------------------------------------
 
-        # =================================================
-        # EXIF
-        # =================================================
+        try:
 
-        exif_data = image.getexif()
+            exif_data = image.getexif()
 
-        if exif_data and len(exif_data) > 0:
+            if exif_data:
 
-            privacy_score += 20
+                risks.append({
+                    "type": "EXIF metadata",
+                    "description":
+                        "The image contains metadata that may reveal information about the image or device.",
+                    "severity": "Medium"
+                })
 
-            risks.append({
-                "type": "EXIF Metadata",
-                "severity": "Medium",
-                "message": "The image contains embedded metadata."
-            })
+                score += 20
 
-            recommendations.append(
-                "Remove metadata before publicly sharing the image."
-            )
+        except Exception:
+            pass
 
-
-        # =================================================
-        # HIGH RESOLUTION
-        # =================================================
+        # -------------------------------------------------
+        # HIGH RESOLUTION RISK
+        # -------------------------------------------------
 
         if width >= 4000 or height >= 3000:
 
-            privacy_score += 10
-
             risks.append({
-                "type": "High Resolution",
-                "severity": "Low",
-                "message": "The image has a very high resolution."
+                "type": "High resolution",
+                "description":
+                    "High-resolution images may expose more visual information.",
+                "severity": "Low"
             })
 
-            recommendations.append(
-                "Consider resizing the image before public sharing."
-            )
+            score += 10
 
+        # -------------------------------------------------
+        # FILE SIZE RISK
+        # -------------------------------------------------
 
-        # =================================================
-        # LARGE FILE
-        # =================================================
-
-        if file_size > 5 * 1024 * 1024:
-
-            privacy_score += 10
+        if file_size_mb > 5:
 
             risks.append({
-                "type": "Large File",
-                "severity": "Low",
-                "message": "The image file is relatively large."
+                "type": "Large file size",
+                "description":
+                    "The image is larger than 5 MB.",
+                "severity": "Low"
             })
 
-            recommendations.append(
-                "Optimize or compress the image before sharing."
-            )
+            score += 10
 
-
-        # =================================================
+        # -------------------------------------------------
         # OCR
-        # =================================================
+        # -------------------------------------------------
 
-        detected_text = pytesseract.image_to_string(
+        ocr_text = pytesseract.image_to_string(
             image
-        ).strip()
-
-
-        # =================================================
-        # EMAIL
-        # =================================================
-
-        email_matches = re.findall(
-            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
-            detected_text
         )
 
+        # -------------------------------------------------
+        # EMAIL DETECTION
+        # -------------------------------------------------
 
-        # =================================================
-        # PHONE
-        # =================================================
-
-        phone_matches = re.findall(
-            r"(?<!\d)(?:\+91[\s-]?)?[6-9]\d{9}(?!\d)",
-            detected_text
+        email_pattern = (
+            r"\b[A-Za-z0-9._%+-]+@"
+            r"[A-Za-z0-9.-]+\."
+            r"[A-Za-z]{2,}\b"
         )
 
-
-        # =================================================
-        # ID
-        # =================================================
-
-        id_matches = re.findall(
-            r"(?<!\d)\d{12}(?!\d)",
-            detected_text
+        emails = re.findall(
+            email_pattern,
+            ocr_text
         )
 
-
-        # =================================================
-        # CARD
-        # =================================================
-
-        card_matches = re.findall(
-            r"(?<!\d)(?:\d{4}[\s-]?){3}\d{4}(?!\d)",
-            detected_text
-        )
-
-
-        # =================================================
-        # EMAIL RISK
-        # =================================================
-
-        if email_matches:
-
-            privacy_score += 25
+        if emails:
 
             risks.append({
-                "type": "Email Address",
-                "severity": "High",
-                "message": "An email address was detected in the image."
+                "type": "Email address",
+                "description":
+                    f"Detected {len(emails)} email address(es).",
+                "severity": "High"
             })
 
-            recommendations.append(
-                "Blur or remove the email address before sharing."
-            )
+            score += 25
 
+        # -------------------------------------------------
+        # PHONE DETECTION
+        # -------------------------------------------------
 
-        # =================================================
-        # PHONE RISK
-        # =================================================
-
-        if phone_matches:
-
-            privacy_score += 25
-
-            risks.append({
-                "type": "Phone Number",
-                "severity": "High",
-                "message": "A possible phone number was detected in the image."
-            })
-
-            recommendations.append(
-                "Blur or remove the phone number before sharing."
-            )
-
-
-        # =================================================
-        # ID RISK
-        # =================================================
-
-        if id_matches:
-
-            privacy_score += 30
-
-            risks.append({
-                "type": "Possible ID Number",
-                "severity": "High",
-                "message": "A long numeric identifier was detected in the image."
-            })
-
-            recommendations.append(
-                "Do not publicly share documents containing identification numbers."
-            )
-
-
-        # =================================================
-        # CARD RISK
-        # =================================================
-
-        if card_matches:
-
-            privacy_score += 40
-
-            risks.append({
-                "type": "Possible Card Number",
-                "severity": "High",
-                "message": "A possible card number was detected in the image."
-            })
-
-            recommendations.append(
-                "Blur or remove card numbers before sharing."
-            )
-
-
-        # =================================================
-        # GENERAL OCR
-        # =================================================
-
-        if detected_text and len(detected_text) > 20:
-
-            recommendations.append(
-                "Review visible text in the image before sharing it publicly."
-            )
-
-
-        # =================================================
-        # SCORE
-        # =================================================
-
-        privacy_score = min(
-            privacy_score,
-            100
+        phone_pattern = (
+            r"(?:\+91[\s-]?)?"
+            r"[6-9]\d{9}"
         )
 
+        phones = re.findall(
+            phone_pattern,
+            ocr_text
+        )
 
-        # =================================================
+        if phones:
+
+            risks.append({
+                "type": "Phone number",
+                "description":
+                    f"Detected {len(phones)} phone number(s).",
+                "severity": "High"
+            })
+
+            score += 25
+
+        # -------------------------------------------------
+        # 12 DIGIT ID DETECTION
+        # -------------------------------------------------
+
+        id_pattern = r"\b\d{12}\b"
+
+        ids = re.findall(
+            id_pattern,
+            ocr_text
+        )
+
+        if ids:
+
+            risks.append({
+                "type": "12-digit ID",
+                "description":
+                    f"Detected {len(ids)} possible 12-digit ID number(s).",
+                "severity": "High"
+            })
+
+            score += 30
+
+        # -------------------------------------------------
+        # CARD-LIKE NUMBER DETECTION
+        # -------------------------------------------------
+
+        card_pattern = (
+            r"\b(?:\d{4}[\s-]?){3}\d{4}\b"
+        )
+
+        cards = re.findall(
+            card_pattern,
+            ocr_text
+        )
+
+        if cards:
+
+            risks.append({
+                "type": "Card-like number",
+                "description":
+                    f"Detected {len(cards)} possible card number(s).",
+                "severity": "Critical"
+            })
+
+            score += 40
+
+        # -------------------------------------------------
+        # SCORE LIMIT
+        # -------------------------------------------------
+
+        score = min(score, 100)
+
+        # -------------------------------------------------
         # RISK LEVEL
-        # =================================================
+        # -------------------------------------------------
 
-        if privacy_score >= 70:
+        if score >= 70:
 
             risk_level = "High Risk"
 
-        elif privacy_score >= 40:
+        elif score >= 40:
 
             risk_level = "Medium Risk"
 
-        elif privacy_score >= 20:
+        elif score >= 20:
 
-            risk_level = "Low-Medium Risk"
+            risk_level = "Low-Medium"
 
         else:
 
             risk_level = "Low Risk"
 
+        # -------------------------------------------------
+        # RECOMMENDATIONS
+        # -------------------------------------------------
 
-        # =================================================
-        # RESPONSE
-        # =================================================
+        recommendations = []
+
+        if emails:
+            recommendations.append(
+                "Redact detected email addresses."
+            )
+
+        if phones:
+            recommendations.append(
+                "Redact detected phone numbers."
+            )
+
+        if ids:
+            recommendations.append(
+                "Redact detected identification numbers."
+            )
+
+        if cards:
+            recommendations.append(
+                "Redact detected card-like numbers."
+            )
+
+        if filename_risk:
+            recommendations.append(
+                "Avoid sharing files with sensitive filenames."
+            )
+
+        if not recommendations:
+
+            recommendations.append(
+                "No major sensitive information was detected."
+            )
+
+        # -------------------------------------------------
+        # RESULT
+        # -------------------------------------------------
 
         return {
-
             "status": "success",
-
-            "filename": filename,
-
-            "image": {
-                "width": width,
-                "height": height,
-                "format": image_format,
-                "file_size": file_size
-            },
-
-            "privacy_score": privacy_score,
-
+            "privacy_score": score,
+            "risk_score": score,
             "risk_level": risk_level,
-
-            "risk_count": len(risks),
-
             "risks": risks,
-
             "recommendations": recommendations,
-
-            "ocr": {
-
-                "text_detected": bool(detected_text),
-
-                "detected_text": detected_text,
-
-                "email_count": len(email_matches),
-
-                "phone_count": len(phone_matches),
-
-                "id_count": len(id_matches),
-
-                "card_count": len(card_matches)
-            }
+            "ocr_text": ocr_text,
+            "sensitive_data": {
+                "emails": len(emails),
+                "phones": len(phones),
+                "ids": len(ids),
+                "cards": len(cards)
+            },
+            "email_count": len(emails),
+            "phone_count": len(phones),
+            "id_count": len(ids),
+            "card_count": len(cards)
         }
+
+    except HTTPException:
+        raise
 
     except Exception as e:
 
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Privacy analysis failed: {str(e)}"
+        )
 
 
 # =========================================================
 # PROTECT IMAGE
-# ACTUAL SENSITIVE TEXT REDACTION + DOWNLOAD
 # =========================================================
 
 @app.post("/protect-image")
-async def protect_image(file: UploadFile = File(...)):
+async def protect_image(
+    file: UploadFile = File(...)
+):
 
     try:
 
-        # -------------------------------------------------
-        # READ IMAGE
-        # -------------------------------------------------
-
         contents = await file.read()
+
+        if not contents:
+            raise HTTPException(
+                status_code=400,
+                detail="Empty file"
+            )
 
         image = Image.open(
             io.BytesIO(contents)
         ).convert("RGB")
 
-
         # -------------------------------------------------
-        # OCR WITH BOUNDING BOXES
+        # OCR DATA
         # -------------------------------------------------
 
-        ocr_data = pytesseract.image_to_data(
+        data = pytesseract.image_to_data(
             image,
             output_type=pytesseract.Output.DICT
         )
 
+        draw = ImageDraw.Draw(image)
+
+        protected_regions = []
+
+        email_count = 0
+        phone_count = 0
+        id_count = 0
+        card_count = 0
 
         # -------------------------------------------------
-        # REGEX
+        # PROCESS OCR WORDS
         # -------------------------------------------------
 
-        email_regex = re.compile(
-            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
-        )
+        n = len(data["text"])
 
-        phone_regex = re.compile(
-            r"(?<!\d)(?:\+91[\s-]?)?[6-9]\d{9}(?!\d)"
-        )
+        for i in range(n):
 
-        id_regex = re.compile(
-            r"(?<!\d)\d{12}(?!\d)"
-        )
-
-        card_regex = re.compile(
-            r"(?<!\d)(?:\d{4}[\s-]?){3}\d{4}(?!\d)"
-        )
-
-
-        # -------------------------------------------------
-        # GROUP WORDS BY LINE
-        # -------------------------------------------------
-
-        lines = {}
-
-        total_words = len(
-            ocr_data["text"]
-        )
-
-        for i in range(total_words):
-
-            text = ocr_data["text"][i].strip()
+            text = data["text"][i].strip()
 
             if not text:
                 continue
 
-            block_num = ocr_data["block_num"][i]
-            par_num = ocr_data["par_num"][i]
-            line_num = ocr_data["line_num"][i]
+            x = data["left"][i]
+            y = data["top"][i]
+            w = data["width"][i]
+            h = data["height"][i]
 
-            line_key = (
-                block_num,
-                par_num,
-                line_num
-            )
-
-            word_info = {
-
-                "text": text,
-
-                "x": ocr_data["left"][i],
-
-                "y": ocr_data["top"][i],
-
-                "w": ocr_data["width"][i],
-
-                "h": ocr_data["height"][i]
-            }
-
-            if line_key not in lines:
-
-                lines[line_key] = []
-
-            lines[line_key].append(
-                word_info
-            )
-
-
-        # -------------------------------------------------
-        # DRAW
-        # -------------------------------------------------
-
-        draw = ImageDraw.Draw(
-            image
-        )
-
-        protected_regions = 0
-
-        detected_sensitive = {
-
-            "emails": 0,
-
-            "phone_numbers": 0,
-
-            "possible_ids": 0,
-
-            "possible_cards": 0
-        }
-
-
-        # -------------------------------------------------
-        # PROCESS LINES
-        # -------------------------------------------------
-
-        for line_words in lines.values():
-
-            line_words.sort(
-                key=lambda item: item["x"]
-            )
-
-            line_text = ""
-
-            word_ranges = []
-
-            for word in line_words:
-
-                if line_text:
-                    line_text += " "
-
-                start = len(line_text)
-
-                line_text += word["text"]
-
-                end = len(line_text)
-
-                word_ranges.append({
-
-                    "start": start,
-
-                    "end": end,
-
-                    "word": word
-                })
-
+            if w <= 0 or h <= 0:
+                continue
 
             # -------------------------------------------------
-            # SEARCH SENSITIVE PATTERNS
+            # EMAIL
             # -------------------------------------------------
 
-            patterns = [
-
-                (
-                    email_regex,
-                    "emails"
-                ),
-
-                (
-                    phone_regex,
-                    "phone_numbers"
-                ),
-
-                (
-                    id_regex,
-                    "possible_ids"
-                ),
-
-                (
-                    card_regex,
-                    "possible_cards"
-                )
-            ]
-
-            matched_ranges = []
-
-            for pattern, category in patterns:
-
-                matches = pattern.finditer(
-                    line_text
-                )
-
-                for match in matches:
-
-                    matched_ranges.append(
-                        (
-                            match.start(),
-                            match.end(),
-                            category
-                        )
-                    )
-
-
-            # -------------------------------------------------
-            # REDACT
-            # -------------------------------------------------
-
-            for (
-                match_start,
-                match_end,
-                category
-            ) in matched_ranges:
-
-                matched_words = []
-
-                for word_range in word_ranges:
-
-                    if (
-                        word_range["end"] > match_start
-                        and
-                        word_range["start"] < match_end
-                    ):
-
-                        matched_words.append(
-                            word_range["word"]
-                        )
-
-
-                if not matched_words:
-                    continue
-
-
-                # -------------------------------------------------
-                # BOUNDING BOX
-                # -------------------------------------------------
-
-                x1 = min(
-                    word["x"]
-                    for word in matched_words
-                )
-
-                y1 = min(
-                    word["y"]
-                    for word in matched_words
-                )
-
-                x2 = max(
-                    word["x"] + word["w"]
-                    for word in matched_words
-                )
-
-                y2 = max(
-                    word["y"] + word["h"]
-                    for word in matched_words
-                )
-
-
-                # -------------------------------------------------
-                # PADDING
-                # -------------------------------------------------
-
-                padding_x = max(
-                    8,
-                    int((x2 - x1) * 0.08)
-                )
-
-                padding_y = max(
-                    6,
-                    int((y2 - y1) * 0.25)
-                )
-
-                x1 = max(
-                    0,
-                    x1 - padding_x
-                )
-
-                y1 = max(
-                    0,
-                    y1 - padding_y
-                )
-
-                x2 = min(
-                    image.width,
-                    x2 + padding_x
-                )
-
-                y2 = min(
-                    image.height,
-                    y2 + padding_y
-                )
-
-
-                # -------------------------------------------------
-                # BLACK REDACTION
-                # -------------------------------------------------
+            if re.search(
+                r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+                text
+            ):
 
                 draw.rectangle(
-                    [
-                        x1,
-                        y1,
-                        x2,
-                        y2
-                    ],
-                    fill=(0, 0, 0)
+                    [x, y, x + w, y + h],
+                    fill="black"
                 )
 
-                protected_regions += 1
+                protected_regions.append({
+                    "type": "email",
+                    "x": x,
+                    "y": y,
+                    "width": w,
+                    "height": h
+                })
 
-                detected_sensitive[
-                    category
-                ] += 1
+                email_count += 1
 
+            # -------------------------------------------------
+            # PHONE
+            # -------------------------------------------------
+
+            elif re.search(
+                r"(?:\+91[\s-]?)?[6-9]\d{9}",
+                text
+            ):
+
+                draw.rectangle(
+                    [x, y, x + w, y + h],
+                    fill="black"
+                )
+
+                protected_regions.append({
+                    "type": "phone",
+                    "x": x,
+                    "y": y,
+                    "width": w,
+                    "height": h
+                })
+
+                phone_count += 1
+
+            # -------------------------------------------------
+            # 12 DIGIT ID
+            # -------------------------------------------------
+
+            elif re.search(
+                r"\b\d{12}\b",
+                text
+            ):
+
+                draw.rectangle(
+                    [x, y, x + w, y + h],
+                    fill="black"
+                )
+
+                protected_regions.append({
+                    "type": "id",
+                    "x": x,
+                    "y": y,
+                    "width": w,
+                    "height": h
+                })
+
+                id_count += 1
+
+            # -------------------------------------------------
+            # CARD
+            # -------------------------------------------------
+
+            elif re.search(
+                r"(?:\d{4}[\s-]?){3}\d{4}",
+                text
+            ):
+
+                draw.rectangle(
+                    [x, y, x + w, y + h],
+                    fill="black"
+                )
+
+                protected_regions.append({
+                    "type": "card",
+                    "x": x,
+                    "y": y,
+                    "width": w,
+                    "height": h
+                })
+
+                card_count += 1
 
         # -------------------------------------------------
-        # PROTECTION BANNER
+        # ADD PROTECTED IMAGE BANNER
         # -------------------------------------------------
 
-        banner_height = min(
-            70,
-            max(
-                45,
-                image.height // 12
-            )
+        banner_height = 70
+
+        protected_image = Image.new(
+            "RGB",
+            (
+                image.width,
+                image.height + banner_height
+            ),
+            "white"
         )
 
-        draw.rectangle(
+        protected_image.paste(
+            image,
+            (0, banner_height)
+        )
+
+        banner_draw = ImageDraw.Draw(
+            protected_image
+        )
+
+        banner_draw.rectangle(
             [
                 0,
                 0,
                 image.width,
                 banner_height
             ],
-            fill=(120, 20, 20)
+            fill="red"
         )
 
-
-        # -------------------------------------------------
-        # FONT
-        # -------------------------------------------------
-
-        try:
-
-            font = ImageFont.truetype(
-                "arial.ttf",
-                max(
-                    16,
-                    image.width // 55
-                )
-            )
-
-        except:
-
-            font = None
-
-
-        # -------------------------------------------------
-        # BANNER TEXT
-        # -------------------------------------------------
-
-        draw.text(
-            (
-                20,
-                banner_height // 4
-            ),
+        banner_draw.text(
+            (20, 20),
             "SNAPSHIELD PROTECTED IMAGE",
-            fill=(255, 255, 255),
-            font=font
+            fill="white"
         )
 
-
         # -------------------------------------------------
-        # SAVE IMAGE
+        # SAVE TO MEMORY
         # -------------------------------------------------
 
         output = io.BytesIO()
 
-        image.save(
+        protected_image.save(
             output,
             format="PNG"
         )
 
         output.seek(0)
 
-
         # -------------------------------------------------
-        # UPLOAD PROTECTED IMAGE TO CLOUDINARY
+        # UPLOAD TO CLOUDINARY
         # -------------------------------------------------
 
         result = cloudinary.uploader.upload(
             output.getvalue(),
             folder="snapshield/protected",
-            resource_type="image"
+            resource_type="image",
+            format="png"
         )
 
+        protected_url = result.get(
+            "secure_url"
+        )
+
+        protected_public_id = result.get(
+            "public_id"
+        )
 
         # -------------------------------------------------
-        # CREATE DOWNLOAD URL
+        # DOWNLOAD URL
         # -------------------------------------------------
 
         download_url = CloudinaryImage(
-            result.get("public_id")
+            protected_public_id
         ).build_url(
             flags=["attachment"]
         )
 
-
-        # -------------------------------------------------
-        # RESPONSE
-        # -------------------------------------------------
+        total_regions = len(
+            protected_regions
+        )
 
         return {
-
             "status": "success",
-
-            "message":
-                "Sensitive information was successfully redacted.",
-
-            "protected_url":
-                result.get("secure_url"),
-
-            "download_url":
-                download_url,
-
-            "public_id":
-                result.get("public_id"),
-
-            "protected_regions":
-                protected_regions,
-
-            "sensitive_counts":
-                detected_sensitive,
-
-            "sensitive_content_found":
-                protected_regions > 0
+            "message": "Image protected successfully",
+            "protected_url": protected_url,
+            "download_url": download_url,
+            "public_id": protected_public_id,
+            "protected_regions": protected_regions,
+            "protected_region_count": total_regions,
+            "sensitive_content_found": total_regions > 0,
+            "sensitive_counts": {
+                "emails": email_count,
+                "phones": phone_count,
+                "ids": id_count,
+                "cards": card_count
+            }
         }
 
+    except HTTPException:
+        raise
 
     except Exception as e:
 
-        return {
-
-            "status": "error",
-
-            "message": str(e)
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Protection failed: {str(e)}"
+        )
 
 
 # =========================================================
-# HEALTH CHECK
+# RUN
 # =========================================================
 
-@app.get("/health")
-def health():
+if __name__ == "__main__":
 
-    return {
+    import uvicorn
 
-        "status": "healthy",
-
-        "service": "SnapShield AI"
-    }
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=int(
+            os.getenv("PORT", 8000)
+        )
+    )
