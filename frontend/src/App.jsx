@@ -2,7 +2,6 @@ import { useState } from "react";
 import "./index.css";
 
 function App() {
-
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadResult, setUploadResult] = useState(null);
   const [optimizedUrl, setOptimizedUrl] = useState(null);
@@ -19,13 +18,11 @@ function App() {
 
   const API_URL = "https://snapshield-ai-2026.onrender.com";
 
-
   // =========================================================
   // FILE SELECTION
   // =========================================================
 
   const handleFileChange = (event) => {
-
     const file = event.target.files[0];
 
     if (!file) return;
@@ -40,121 +37,79 @@ function App() {
     setError("");
   };
 
-
   // =========================================================
   // UPLOAD
   // =========================================================
 
   const uploadImage = async () => {
-
     if (!selectedFile) {
-
       setError("Please select an image first.");
-
       return;
     }
 
     try {
-
       setLoading(true);
       setError("");
 
       const formData = new FormData();
-
       formData.append("file", selectedFile);
 
-      const response = await fetch(
-        `${API_URL}/upload-image`,
-        {
-          method: "POST",
-          body: formData
-        }
-      );
+      const response = await fetch(`${API_URL}/upload-image`, {
+        method: "POST",
+        body: formData,
+      });
 
       const data = await response.json();
 
       if (data.status === "success") {
-
         setUploadResult(data);
-
         await analyzePrivacy();
-
       } else {
-
-        setError(
-          data.message ||
-          "Image upload failed."
-        );
+        setError(data.message || "Image upload failed.");
       }
-
     } catch (err) {
-
-      setError(
-        "Could not connect to SnapShield backend."
-      );
-
+      setError("Could not connect to SnapShield backend.");
     } finally {
-
       setLoading(false);
     }
   };
-
 
   // =========================================================
   // PRIVACY ANALYSIS
   // =========================================================
 
   const analyzePrivacy = async () => {
-
     if (!selectedFile) return;
 
     try {
-
       const formData = new FormData();
-
       formData.append("file", selectedFile);
 
-      const response = await fetch(
-        `${API_URL}/analyze-privacy`,
-        {
-          method: "POST",
-          body: formData
-        }
-      );
+      const response = await fetch(`${API_URL}/analyze-privacy`, {
+        method: "POST",
+        body: formData,
+      });
 
       const data = await response.json();
 
       if (data.status === "success") {
-
         setPrivacyResult(data);
-
       } else {
-
-        setError(
-          data.message ||
-          "Privacy analysis failed."
-        );
+        setError(data.message || "Privacy analysis failed.");
       }
-
     } catch (err) {
-
-      setError(
-        "Could not analyze the image."
-      );
+      setError("Could not analyze the image.");
     }
   };
-
 
   // =========================================================
   // OPTIMIZE
   // =========================================================
 
   const optimizeImage = async () => {
-
     if (!uploadResult?.public_id) return;
 
     try {
-
       setLoading(true);
       setError("");
 
@@ -167,42 +122,25 @@ function App() {
       const data = await response.json();
 
       if (data.status === "success") {
-
-        setOptimizedUrl(
-          data.optimized_url
-        );
-
+        setOptimizedUrl(data.optimized_url);
       } else {
-
-        setError(
-          data.message ||
-          "Image optimization failed."
-        );
+        setError(data.message || "Image optimization failed.");
       }
-
     } catch (err) {
-
-      setError(
-        "Could not optimize the image."
-      );
-
+      setError("Could not optimize the image.");
     } finally {
-
       setLoading(false);
     }
   };
-
 
   // =========================================================
   // BACKGROUND REMOVAL
   // =========================================================
 
   const removeBackground = async () => {
-
     if (!uploadResult?.public_id) return;
 
     try {
-
       setLoading(true);
       setError("");
 
@@ -215,103 +153,59 @@ function App() {
       const data = await response.json();
 
       if (data.status === "success") {
-
-        setBackgroundRemovedUrl(
-          data.background_removed_url
-        );
-
+        setBackgroundRemovedUrl(data.background_removed_url);
       } else {
-
-        setError(
-          data.message ||
-          "Background removal failed."
-        );
+        setError(data.message || "Background removal failed.");
       }
-
     } catch (err) {
-
-      setError(
-        "Could not remove the background."
-      );
-
+      setError("Could not remove the background.");
     } finally {
-
       setLoading(false);
     }
   };
-
 
   // =========================================================
   // PROTECT IMAGE
   // =========================================================
 
   const protectImage = async () => {
-
     if (!selectedFile) {
-
-      setError(
-        "Please select an image first."
-      );
-
+      setError("Please select an image first.");
       return;
     }
 
     try {
-
       setLoading(true);
       setError("");
 
       const formData = new FormData();
-
       formData.append("file", selectedFile);
 
-      const response = await fetch(
-        `${API_URL}/protect-image`,
-        {
-          method: "POST",
-          body: formData
-        }
-      );
+      const response = await fetch(`${API_URL}/protect-image`, {
+        method: "POST",
+        body: formData,
+      });
 
       const data = await response.json();
 
       if (data.status === "success") {
-
-        setProtectedUrl(
-          data.protected_url
-        );
-
-        setDownloadUrl(
-          data.download_url
-        );
-
+        setProtectedUrl(data.protected_url);
+        setDownloadUrl(data.download_url);
       } else {
-
-        setError(
-          data.message ||
-          "Image protection failed."
-        );
+        setError(data.message || "Image protection failed.");
       }
-
     } catch (err) {
-
-      setError(
-        "Could not connect to the protection service."
-      );
-
+      setError("Could not connect to the protection service.");
     } finally {
-
       setLoading(false);
     }
   };
-
 
   // =========================================================
   // RESET
   // =========================================================
 
   const resetApp = () => {
-
     setSelectedFile(null);
     setUploadResult(null);
     setOptimizedUrl(null);
@@ -321,63 +215,46 @@ function App() {
     setDownloadUrl(null);
     setError("");
 
-    const fileInput =
-      document.getElementById("file-input");
+    const fileInput = document.getElementById("file-input");
 
     if (fileInput) {
-
       fileInput.value = "";
     }
   };
 
-
   // =========================================================
-  // SENSITIVE COUNT
+  // SENSITIVE DATA COUNT
   // =========================================================
 
   const sensitiveCount =
-    privacyResult?.ocr
-      ? privacyResult.ocr.email_count +
-        privacyResult.ocr.phone_count +
-        privacyResult.ocr.id_count +
-        privacyResult.ocr.card_count
-      : 0;
-
+    (privacyResult?.sensitive_data?.emails ?? 0) +
+    (privacyResult?.sensitive_data?.phones ?? 0) +
+    (privacyResult?.sensitive_data?.ids ?? 0) +
+    (privacyResult?.sensitive_data?.cards ?? 0);
 
   // =========================================================
   // UI
   // =========================================================
 
   return (
-
     <div className="app">
 
       {/* NAVBAR */}
 
       <nav className="navbar">
-
         <div className="logo">
-
-          <span className="logo-icon">
-            🛡️
-          </span>
+          <span className="logo-icon">🛡️</span>
 
           <span>
             SnapShield <strong>AI</strong>
           </span>
-
         </div>
 
         <div className="nav-status">
-
           <span className="status-dot"></span>
-
           Privacy Scanner Online
-
         </div>
-
       </nav>
-
 
       {/* HERO */}
 
@@ -388,33 +265,22 @@ function App() {
         </div>
 
         <h1>
-
           Protect Your Images
-
           <br />
-
-          <span>
-            Before You Share.
-          </span>
-
+          <span>Before You Share.</span>
         </h1>
 
         <p>
-
-          SnapShield AI analyzes images for
-          sensitive information, detects privacy
-          risks, protects sensitive content and
+          SnapShield AI analyzes images for sensitive information,
+          detects privacy risks, protects sensitive content and
           optimizes media.
-
         </p>
 
       </section>
 
-
       {/* MAIN */}
 
       <main className="main-container">
-
 
         {/* UPLOAD */}
 
@@ -423,15 +289,11 @@ function App() {
           <div className="upload-header">
 
             <div>
-
-              <h2>
-                Upload Image
-              </h2>
+              <h2>Upload Image</h2>
 
               <p>
                 Select an image to scan for privacy risks.
               </p>
-
             </div>
 
             <div className="upload-icon">
@@ -439,7 +301,6 @@ function App() {
             </div>
 
           </div>
-
 
           <label
             htmlFor="file-input"
@@ -464,7 +325,6 @@ function App() {
 
           </label>
 
-
           <input
             id="file-input"
             type="file"
@@ -473,71 +333,44 @@ function App() {
             hidden
           />
 
-
           {selectedFile && (
-
             <div className="selected-file">
 
               <div>
-
-                <strong>
-                  Selected:
-                </strong>{" "}
-
+                <strong>Selected:</strong>{" "}
                 {selectedFile.name}
-
               </div>
 
               <div>
-
-                {(
-                  selectedFile.size / 1024
-                ).toFixed(1)}
-
+                {(selectedFile.size / 1024).toFixed(1)}
                 {" KB"}
-
               </div>
 
             </div>
-
           )}
-
 
           <button
             className="primary-button upload-button"
             onClick={uploadImage}
-            disabled={
-              !selectedFile ||
-              loading
-            }
+            disabled={!selectedFile || loading}
           >
-
             {loading
               ? "Processing..."
               : "🚀 Scan Image"}
-
           </button>
 
-
           {error && (
-
             <div className="error-message">
-
               ❌ {error}
-
             </div>
-
           )}
 
         </section>
 
-
         {/* UPLOADED IMAGE + OPTIMIZATION */}
 
         {uploadResult && (
-
           <section className="dashboard-grid">
-
 
             {/* ORIGINAL */}
 
@@ -563,7 +396,6 @@ function App() {
 
               </div>
 
-
               <img
                 src={
                   uploadResult.secure_url ||
@@ -573,49 +405,35 @@ function App() {
                 className="preview-image"
               />
 
-
               <div className="image-details">
 
                 <div>
-
-                  <span>
-                    Format
-                  </span>
+                  <span>Format</span>
 
                   <strong>
                     {uploadResult.format}
                   </strong>
-
                 </div>
 
                 <div>
-
-                  <span>
-                    Width
-                  </span>
+                  <span>Width</span>
 
                   <strong>
                     {uploadResult.width}px
                   </strong>
-
                 </div>
 
                 <div>
-
-                  <span>
-                    Height
-                  </span>
+                  <span>Height</span>
 
                   <strong>
                     {uploadResult.height}px
                   </strong>
-
                 </div>
 
               </div>
 
             </div>
-
 
             {/* OPTIMIZATION */}
 
@@ -641,29 +459,20 @@ function App() {
 
               </div>
 
-
               <p className="card-description">
-
                 Automatically optimize image quality
                 and delivery format using Cloudinary.
-
               </p>
 
-
               {!optimizedUrl ? (
-
                 <button
                   className="secondary-button"
                   onClick={optimizeImage}
                   disabled={loading}
                 >
-
                   ⚡ Optimize with Cloudinary
-
                 </button>
-
               ) : (
-
                 <div>
 
                   <img
@@ -678,26 +487,20 @@ function App() {
                     rel="noopener noreferrer"
                     className="secondary-button"
                   >
-
                     🔗 Open Optimized Image
-
                   </a>
 
                 </div>
-
               )}
 
             </div>
 
           </section>
-
         )}
-
 
         {/* BACKGROUND REMOVAL */}
 
         {uploadResult && (
-
           <section className="result-card full-card">
 
             <div className="card-header">
@@ -720,30 +523,21 @@ function App() {
 
             </div>
 
-
             <p className="card-description">
-
               Remove the image background using
               Cloudinary's background removal
               transformation.
-
             </p>
 
-
             {!backgroundRemovedUrl ? (
-
               <button
                 className="secondary-button"
                 onClick={removeBackground}
                 disabled={loading}
               >
-
                 ✨ Remove Background
-
               </button>
-
             ) : (
-
               <div>
 
                 <img
@@ -758,26 +552,19 @@ function App() {
                   rel="noopener noreferrer"
                   className="secondary-button"
                 >
-
                   🔗 Open Background Removed Image
-
                 </a>
 
               </div>
-
             )}
 
           </section>
-
         )}
-
 
         {/* PRIVACY ANALYSIS */}
 
         {privacyResult && (
-
           <section className="privacy-section">
-
 
             <div className="section-title">
 
@@ -794,18 +581,14 @@ function App() {
               </div>
 
               <div className="risk-badge">
-
                 {privacyResult.risk_level}
-
               </div>
 
             </div>
 
-
             {/* SCORE */}
 
             <div className="privacy-grid">
-
 
               <div className="score-card">
 
@@ -830,9 +613,7 @@ function App() {
                 <div className="score-description">
 
                   {
-                    privacyResult.risk_count ??
-                    privacyResult.risks?.length ??
-                    0
+                    privacyResult.risks?.length ?? 0
                   }
 
                   {" "}
@@ -842,8 +623,7 @@ function App() {
 
               </div>
 
-
-              {/* OCR */}
+              {/* OCR COUNTS */}
 
               <div className="ocr-card">
 
@@ -854,54 +634,43 @@ function App() {
                 <div className="ocr-stats">
 
                   <div>
-
                     <strong>
-                      {privacyResult.ocr?.email_count ?? 0}
+                      {privacyResult.sensitive_data?.emails ?? 0}
                     </strong>
 
                     <span>
                       Emails
                     </span>
-
                   </div>
 
-
                   <div>
-
                     <strong>
-                      {privacyResult.ocr?.phone_count ?? 0}
+                      {privacyResult.sensitive_data?.phones ?? 0}
                     </strong>
 
                     <span>
                       Phones
                     </span>
-
                   </div>
 
-
                   <div>
-
                     <strong>
-                      {privacyResult.ocr?.id_count ?? 0}
+                      {privacyResult.sensitive_data?.ids ?? 0}
                     </strong>
 
                     <span>
                       IDs
                     </span>
-
                   </div>
 
-
                   <div>
-
                     <strong>
-                      {privacyResult.ocr?.card_count ?? 0}
+                      {privacyResult.sensitive_data?.cards ?? 0}
                     </strong>
 
                     <span>
                       Cards
                     </span>
-
                   </div>
 
                 </div>
@@ -910,11 +679,9 @@ function App() {
 
             </div>
 
-
             {/* RISKS */}
 
             {privacyResult.risks?.length > 0 && (
-
               <div className="result-card full-card">
 
                 <div className="card-header">
@@ -933,12 +700,10 @@ function App() {
 
                 </div>
 
-
                 <div className="risk-list">
 
                   {privacyResult.risks.map(
                     (risk, index) => (
-
                       <div
                         className="risk-item"
                         key={index}
@@ -973,16 +738,13 @@ function App() {
                         </span>
 
                       </div>
-
                     )
                   )}
 
                 </div>
 
               </div>
-
             )}
-
 
             {/* OCR TEXT */}
 
@@ -991,7 +753,6 @@ function App() {
               privacyResult.ocr?.detected_text ||
               privacyResult.ocr?.text
             ) && (
-
               <div className="result-card full-card">
 
                 <div className="card-header">
@@ -1013,22 +774,19 @@ function App() {
                 <div className="ocr-text">
 
                   {
-                    privacyResult.ocr.detected_text ||
-                    privacyResult.ocr.text ||
+                    privacyResult.ocr?.detected_text ||
+                    privacyResult.ocr?.text ||
                     ""
                   }
 
                 </div>
 
               </div>
-
             )}
-
 
             {/* RECOMMENDATIONS */}
 
             {privacyResult.recommendations?.length > 0 && (
-
               <div className="result-card full-card">
 
                 <div className="card-header">
@@ -1047,12 +805,10 @@ function App() {
 
                 </div>
 
-
                 <div className="recommendation-list">
 
                   {privacyResult.recommendations.map(
                     (recommendation, index) => (
-
                       <div
                         className="recommendation-item"
                         key={index}
@@ -1067,21 +823,17 @@ function App() {
                         </p>
 
                       </div>
-
                     )
                   )}
 
                 </div>
 
               </div>
-
             )}
 
-
-            {/* PROTECT + DOWNLOAD */}
+            {/* PROTECT */}
 
             {sensitiveCount > 0 && (
-
               <div className="result-card full-card protection-card">
 
                 <div className="card-header">
@@ -1104,7 +856,6 @@ function App() {
 
                 </div>
 
-
                 <p className="card-description">
 
                   Sensitive information was detected.
@@ -1113,9 +864,7 @@ function App() {
 
                 </p>
 
-
                 {!protectedUrl ? (
-
                   <button
                     className="primary-button"
                     onClick={protectImage}
@@ -1127,19 +876,13 @@ function App() {
                       : "🛡️ Protect Image"}
 
                   </button>
-
                 ) : (
-
                   <div className="protected-result">
 
-
                     <div className="success-message">
-
                       ✅ Sensitive information
                       successfully redacted.
-
                     </div>
-
 
                     <img
                       src={protectedUrl}
@@ -1147,11 +890,7 @@ function App() {
                       className="preview-image"
                     />
 
-
                     <div className="protected-actions">
-
-
-                      {/* OPEN */}
 
                       <a
                         href={protectedUrl}
@@ -1159,49 +898,33 @@ function App() {
                         rel="noopener noreferrer"
                         className="secondary-button"
                       >
-
                         🔗 Open Protected Image
-
                       </a>
 
-
-                      {/* DOWNLOAD */}
-
                       {downloadUrl && (
-
                         <a
                           href={downloadUrl}
                           className="download-button"
                         >
-
                           ⬇️ Download Protected Image
-
                         </a>
-
                       )}
 
                     </div>
 
-
                     <p className="download-help">
-
                       Download this protected version
                       and safely post or share it.
-
                     </p>
 
                   </div>
-
                 )}
 
               </div>
-
             )}
 
           </section>
-
         )}
-
 
         {/* WORKFLOW */}
 
@@ -1223,9 +946,7 @@ function App() {
 
           </div>
 
-
           <div className="workflow-grid">
-
 
             <div className="workflow-card">
 
@@ -1246,7 +967,6 @@ function App() {
               </p>
 
             </div>
-
 
             <div className="workflow-card">
 
@@ -1269,7 +989,6 @@ function App() {
 
             </div>
 
-
             <div className="workflow-card">
 
               <div className="workflow-number">
@@ -1290,7 +1009,6 @@ function App() {
               </p>
 
             </div>
-
 
             <div className="workflow-card">
 
@@ -1313,7 +1031,6 @@ function App() {
 
             </div>
 
-
             <div className="workflow-card">
 
               <div className="workflow-number">
@@ -1334,7 +1051,6 @@ function App() {
               </p>
 
             </div>
-
 
             <div className="workflow-card">
 
@@ -1360,7 +1076,6 @@ function App() {
 
         </section>
 
-
         {/* RESET */}
 
         {(selectedFile ||
@@ -1373,34 +1088,24 @@ function App() {
               className="reset-button"
               onClick={resetApp}
             >
-
               ↻ Start New Scan
-
             </button>
 
           </div>
-
         )}
 
       </main>
-
 
       {/* FOOTER */}
 
       <footer>
 
         <p>
-
-          🛡️ SnapShield AI
-          {" • "}
-          Smart Image Safety & Privacy Scanner
-
+          🛡️ SnapShield AI • Smart Image Safety & Privacy Scanner
         </p>
 
         <p>
-
           Powered by Cloudinary + FastAPI + OCR
-
         </p>
 
       </footer>
