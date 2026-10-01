@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+cloudinary
+python-dotenv
+python-multipart
+pillow
+pytesseract
