@@ -4,28 +4,18 @@ import "./index.css";
 function App() {
 
   const [selectedFile, setSelectedFile] = useState(null);
-
   const [uploadResult, setUploadResult] = useState(null);
-
   const [optimizedUrl, setOptimizedUrl] = useState(null);
+  const [backgroundRemovedUrl, setBackgroundRemovedUrl] = useState(null);
+  const [privacyResult, setPrivacyResult] = useState(null);
+  const [protectedUrl, setProtectedUrl] = useState(null);
+  const [downloadUrl, setDownloadUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const [backgroundRemovedUrl, setBackgroundRemovedUrl] =
-    useState(null);
-
-  const [privacyResult, setPrivacyResult] =
-    useState(null);
-
-  const [protectedUrl, setProtectedUrl] =
-    useState(null);
-
-  const [downloadUrl, setDownloadUrl] =
-    useState(null);
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
+  // =========================================================
+  // PRODUCTION BACKEND
+  // =========================================================
 
   const API_URL = "https://snapshield-ai-2026.onrender.com";
 
@@ -41,19 +31,12 @@ function App() {
     if (!file) return;
 
     setSelectedFile(file);
-
     setUploadResult(null);
-
     setOptimizedUrl(null);
-
     setBackgroundRemovedUrl(null);
-
     setPrivacyResult(null);
-
     setProtectedUrl(null);
-
     setDownloadUrl(null);
-
     setError("");
   };
 
@@ -66,9 +49,7 @@ function App() {
 
     if (!selectedFile) {
 
-      setError(
-        "Please select an image first."
-      );
+      setError("Please select an image first.");
 
       return;
     }
@@ -76,15 +57,11 @@ function App() {
     try {
 
       setLoading(true);
-
       setError("");
 
       const formData = new FormData();
 
-      formData.append(
-        "file",
-        selectedFile
-      );
+      formData.append("file", selectedFile);
 
       const response = await fetch(
         `${API_URL}/upload-image`,
@@ -94,8 +71,7 @@ function App() {
         }
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (data.status === "success") {
 
@@ -134,13 +110,9 @@ function App() {
 
     try {
 
-      const formData =
-        new FormData();
+      const formData = new FormData();
 
-      formData.append(
-        "file",
-        selectedFile
-      );
+      formData.append("file", selectedFile);
 
       const response = await fetch(
         `${API_URL}/analyze-privacy`,
@@ -150,8 +122,7 @@ function App() {
         }
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (data.status === "success") {
 
@@ -185,7 +156,6 @@ function App() {
     try {
 
       setLoading(true);
-
       setError("");
 
       const response = await fetch(
@@ -194,8 +164,7 @@ function App() {
         )}`
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (data.status === "success") {
 
@@ -235,7 +204,6 @@ function App() {
     try {
 
       setLoading(true);
-
       setError("");
 
       const response = await fetch(
@@ -244,8 +212,7 @@ function App() {
         )}`
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (data.status === "success") {
 
@@ -292,16 +259,11 @@ function App() {
     try {
 
       setLoading(true);
-
       setError("");
 
-      const formData =
-        new FormData();
+      const formData = new FormData();
 
-      formData.append(
-        "file",
-        selectedFile
-      );
+      formData.append("file", selectedFile);
 
       const response = await fetch(
         `${API_URL}/protect-image`,
@@ -311,8 +273,7 @@ function App() {
         }
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (data.status === "success") {
 
@@ -352,25 +313,16 @@ function App() {
   const resetApp = () => {
 
     setSelectedFile(null);
-
     setUploadResult(null);
-
     setOptimizedUrl(null);
-
     setBackgroundRemovedUrl(null);
-
     setPrivacyResult(null);
-
     setProtectedUrl(null);
-
     setDownloadUrl(null);
-
     setError("");
 
     const fileInput =
-      document.getElementById(
-        "file-input"
-      );
+      document.getElementById("file-input");
 
     if (fileInput) {
 
@@ -400,9 +352,7 @@ function App() {
 
     <div className="app">
 
-      {/* =====================================================
-          NAVBAR
-          ===================================================== */}
+      {/* NAVBAR */}
 
       <nav className="navbar">
 
@@ -429,9 +379,7 @@ function App() {
       </nav>
 
 
-      {/* =====================================================
-          HERO
-          ===================================================== */}
+      {/* HERO */}
 
       <section className="hero">
 
@@ -463,16 +411,12 @@ function App() {
       </section>
 
 
-      {/* =====================================================
-          MAIN
-          ===================================================== */}
+      {/* MAIN */}
 
       <main className="main-container">
 
 
-        {/* ===================================================
-            UPLOAD
-            =================================================== */}
+        {/* UPLOAD */}
 
         <section className="upload-card">
 
@@ -588,9 +532,7 @@ function App() {
         </section>
 
 
-        {/* ===================================================
-            UPLOADED IMAGE + OPTIMIZATION
-            =================================================== */}
+        {/* UPLOADED IMAGE + OPTIMIZATION */}
 
         {uploadResult && (
 
@@ -623,7 +565,10 @@ function App() {
 
 
               <img
-                src={uploadResult.url}
+                src={
+                  uploadResult.secure_url ||
+                  uploadResult.url
+                }
                 alt="Original"
                 className="preview-image"
               />
@@ -712,7 +657,9 @@ function App() {
                   onClick={optimizeImage}
                   disabled={loading}
                 >
+
                   ⚡ Optimize with Cloudinary
+
                 </button>
 
               ) : (
@@ -731,7 +678,9 @@ function App() {
                     rel="noopener noreferrer"
                     className="secondary-button"
                   >
+
                     🔗 Open Optimized Image
+
                   </a>
 
                 </div>
@@ -745,9 +694,7 @@ function App() {
         )}
 
 
-        {/* ===================================================
-            BACKGROUND REMOVAL
-            =================================================== */}
+        {/* BACKGROUND REMOVAL */}
 
         {uploadResult && (
 
@@ -790,7 +737,9 @@ function App() {
                 onClick={removeBackground}
                 disabled={loading}
               >
+
                 ✨ Remove Background
+
               </button>
 
             ) : (
@@ -809,7 +758,9 @@ function App() {
                   rel="noopener noreferrer"
                   className="secondary-button"
                 >
+
                   🔗 Open Background Removed Image
+
                 </a>
 
               </div>
@@ -821,9 +772,7 @@ function App() {
         )}
 
 
-        {/* ===================================================
-            PRIVACY ANALYSIS
-            =================================================== */}
+        {/* PRIVACY ANALYSIS */}
 
         {privacyResult && (
 
@@ -866,7 +815,11 @@ function App() {
 
                 <div className="score-number">
 
-                  {privacyResult.privacy_score}
+                  {
+                    privacyResult.privacy_score ??
+                    privacyResult.risk_score ??
+                    0
+                  }
 
                   <span>
                     /100
@@ -876,7 +829,12 @@ function App() {
 
                 <div className="score-description">
 
-                  {privacyResult.risk_count}
+                  {
+                    privacyResult.risk_count ??
+                    privacyResult.risks?.length ??
+                    0
+                  }
+
                   {" "}
                   privacy risk(s) detected
 
@@ -898,7 +856,7 @@ function App() {
                   <div>
 
                     <strong>
-                      {privacyResult.ocr.email_count}
+                      {privacyResult.ocr?.email_count ?? 0}
                     </strong>
 
                     <span>
@@ -907,10 +865,11 @@ function App() {
 
                   </div>
 
+
                   <div>
 
                     <strong>
-                      {privacyResult.ocr.phone_count}
+                      {privacyResult.ocr?.phone_count ?? 0}
                     </strong>
 
                     <span>
@@ -919,10 +878,11 @@ function App() {
 
                   </div>
 
+
                   <div>
 
                     <strong>
-                      {privacyResult.ocr.id_count}
+                      {privacyResult.ocr?.id_count ?? 0}
                     </strong>
 
                     <span>
@@ -931,10 +891,11 @@ function App() {
 
                   </div>
 
+
                   <div>
 
                     <strong>
-                      {privacyResult.ocr.card_count}
+                      {privacyResult.ocr?.card_count ?? 0}
                     </strong>
 
                     <span>
@@ -996,7 +957,11 @@ function App() {
                             </strong>
 
                             <p>
-                              {risk.message}
+                              {
+                                risk.message ||
+                                risk.description ||
+                                ""
+                              }
                             </p>
 
                           </div>
@@ -1004,9 +969,7 @@ function App() {
                         </div>
 
                         <span className="severity">
-
                           {risk.severity}
-
                         </span>
 
                       </div>
@@ -1023,7 +986,11 @@ function App() {
 
             {/* OCR TEXT */}
 
-            {privacyResult.ocr?.text_detected && (
+            {(
+              privacyResult.ocr?.text_detected ||
+              privacyResult.ocr?.detected_text ||
+              privacyResult.ocr?.text
+            ) && (
 
               <div className="result-card full-card">
 
@@ -1045,7 +1012,11 @@ function App() {
 
                 <div className="ocr-text">
 
-                  {privacyResult.ocr.detected_text}
+                  {
+                    privacyResult.ocr.detected_text ||
+                    privacyResult.ocr.text ||
+                    ""
+                  }
 
                 </div>
 
@@ -1107,9 +1078,7 @@ function App() {
             )}
 
 
-            {/* =================================================
-                PROTECT + DOWNLOAD
-                ================================================= */}
+            {/* PROTECT + DOWNLOAD */}
 
             {sensitiveCount > 0 && (
 
@@ -1234,9 +1203,7 @@ function App() {
         )}
 
 
-        {/* ===================================================
-            WORKFLOW
-            =================================================== */}
+        {/* WORKFLOW */}
 
         <section className="workflow-section">
 
@@ -1394,9 +1361,7 @@ function App() {
         </section>
 
 
-        {/* ===================================================
-            RESET
-            =================================================== */}
+        {/* RESET */}
 
         {(selectedFile ||
           uploadResult ||
@@ -1420,9 +1385,7 @@ function App() {
       </main>
 
 
-      {/* =====================================================
-          FOOTER
-          ===================================================== */}
+      {/* FOOTER */}
 
       <footer>
 
